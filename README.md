@@ -17,9 +17,8 @@ Author: **Przemysław Myk — MykLink / Smart Connections**
 
 1. Open the script in SQL*Plus / SQLcl / SQL Developer.
 2. Adjust parameters at the top of the file (e.g., `v_lu`).
-3. Run `SET SERVEROUTPUT ON` to see log messages.
-4. Execute the script.
-5. Refresh the Custom Fields window in IFS client to see the changes.
+3. Execute the script.
+4. Read comments at the end of code to notice next steps.
 
 ---
 
