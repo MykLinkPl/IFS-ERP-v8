@@ -9,7 +9,7 @@ Author: **Przemysław Myk — MykLink / Smart Connections**
 
 | File | Description | Parameters | Side Effects | Notes |
 |------|-------------|------------|--------------|-------|
-| `reorder_enum_values.sql` | Re-sequences enumeration values (order by `CLIENT_VALUE`). | `v_lu` – LU name of the enumeration. | Commit after each row + `Deploy__` call. | If the enumeration was removed by another user, deploy is skipped. |
+| `Reorder_ifs_erp_enumeration` | Re-sequences enumeration values (order by `CLIENT_VALUE`). | `v_lu` – LU name of the enumeration. | Commit after each row + `Deploy__` call. | If the enumeration was removed by another user, deploy is skipped. |
 
 ---
 
