@@ -1,0 +1,245 @@
+-- Copy IFS Apps 8 roles from one user to another (no removals).
+-- Oracle 11g compatible. API-first only (no INSERT by default).
+-- Author: Przemysław Myk — MykLink / Smart Connections
+-- https://github.com/MykLinkPl
+
+DECLARE
+  ------------------------------------------------------------------------------
+  -- === PARAMETERS TO SET ===
+  ------------------------------------------------------------------------------
+  p_src_user   VARCHAR2(128) := 'FROM_USER';   -- source user
+  p_dst_user   VARCHAR2(128) := 'TO_USER';   -- target user
+
+  -- mapping table (IFS Apps 8 synonym/table)
+  p_map_table      VARCHAR2(128) := 'FND_USER_ROLE_TAB';
+
+  -- behavior
+  dry_run                BOOLEAN := TRUE;   -- TRUE = print only, FALSE = perform changes
+  do_commit              BOOLEAN := TRUE;   -- commit when dry_run=FALSE
+  allow_insert_fallback  BOOLEAN := FALSE;  -- FALSE = API only (recommended for IFS 8)
+
+  ------------------------------------------------------------------------------
+  -- === INTERNALS (11g: vars before subprograms) ===
+  ------------------------------------------------------------------------------
+  TYPE rc_t IS REF CURSOR;
+  c           rc_t;
+  v_role      VARCHAR2(200);
+  v_sql       CLOB;
+
+  v_user_col  VARCHAR2(128);
+  v_role_col  VARCHAR2(128);
+
+  -- resolved base table behind synonym
+  v_owner     VARCHAR2(128);
+  v_table     VARCHAR2(128);
+
+  ------------------------------------------------------------------------------
+  -- === SUBPROGRAMS ===
+  ------------------------------------------------------------------------------
+  PROCEDURE say(p VARCHAR2) IS BEGIN DBMS_OUTPUT.PUT_LINE(p); END;
+
+  FUNCTION qid(p VARCHAR2) RETURN VARCHAR2 IS BEGIN
+    RETURN '"'||REPLACE(p,'"','""')||'"';
+  END;
+
+  FUNCTION qv(p VARCHAR2) RETURN VARCHAR2 IS BEGIN
+    RETURN ''''||REPLACE(p,'''','''''')||'''';
+  END;
+
+  PROCEDURE resolve_table(p_name IN VARCHAR2, o_owner OUT VARCHAR2, o_table OUT VARCHAR2) IS
+  BEGIN
+    BEGIN
+      SELECT OWNER, TABLE_NAME INTO o_owner, o_table
+        FROM ALL_TABLES
+       WHERE UPPER(TABLE_NAME)=UPPER(p_name) AND ROWNUM=1;
+      RETURN;
+    EXCEPTION WHEN NO_DATA_FOUND THEN NULL; END;
+
+    BEGIN
+      SELECT TABLE_OWNER, TABLE_NAME INTO o_owner, o_table
+        FROM ALL_SYNONYMS
+       WHERE UPPER(SYNONYM_NAME)=UPPER(p_name)
+         AND OWNER IN (USER,'PUBLIC') AND ROWNUM=1;
+      RETURN;
+    EXCEPTION WHEN NO_DATA_FOUND THEN
+      o_owner := NULL; o_table := UPPER(p_name);
+    END;
+  END;
+
+  FUNCTION join_candidates(p SYS.ODCIVARCHAR2LIST) RETURN VARCHAR2 IS
+    v VARCHAR2(4000) := NULL;
+  BEGIN
+    IF p.COUNT=0 THEN RETURN NULL; END IF;
+    FOR i IN 1..p.COUNT LOOP
+      IF v IS NULL THEN v := p(i); ELSE v := v||','||p(i); END IF;
+    END LOOP;
+    RETURN v;
+  END;
+
+  FUNCTION detect_column(p_owner VARCHAR2, p_table VARCHAR2,
+                         p_candidates SYS.ODCIVARCHAR2LIST,
+                         p_label VARCHAR2) RETURN VARCHAR2 IS
+    v_col VARCHAR2(128);
+  BEGIN
+    FOR i IN 1..p_candidates.COUNT LOOP
+      BEGIN
+        SELECT COLUMN_NAME INTO v_col
+          FROM ALL_TAB_COLUMNS
+         WHERE (OWNER = p_owner OR p_owner IS NULL)
+           AND TABLE_NAME = p_table
+           AND COLUMN_NAME = UPPER(p_candidates(i))
+           AND ROWNUM = 1;
+        say('-- DETECT: '||p_label||' column = '||v_col);
+        RETURN v_col;
+      EXCEPTION WHEN NO_DATA_FOUND THEN NULL; END;
+    END LOOP;
+
+    RAISE_APPLICATION_ERROR(-20060,
+      'Cannot detect '||p_label||' column in '||NVL(p_owner||'.','')||p_table||
+      ' from candidates: '||join_candidates(p_candidates));
+  END;
+
+  FUNCTION pkg_exists(p_name VARCHAR2) RETURN BOOLEAN IS n INTEGER;
+  BEGIN
+    SELECT 1 INTO n FROM ALL_OBJECTS
+     WHERE OBJECT_NAME=UPPER(p_name) AND OBJECT_TYPE='PACKAGE' AND ROWNUM=1;
+    RETURN TRUE;
+  EXCEPTION WHEN NO_DATA_FOUND THEN RETURN FALSE; END;
+
+  FUNCTION proc_exists(p_pkg VARCHAR2, p_proc VARCHAR2) RETURN BOOLEAN IS n INTEGER;
+  BEGIN
+    SELECT 1 INTO n FROM ALL_PROCEDURES
+     WHERE OBJECT_NAME=UPPER(p_pkg) AND PROCEDURE_NAME=UPPER(p_proc) AND ROWNUM=1;
+    RETURN TRUE;
+  EXCEPTION WHEN NO_DATA_FOUND THEN RETURN FALSE; END;
+
+  -- API calls (BOOLEAN enable_ for Set_Role__)
+  PROCEDURE try_grant_via_api(p_user VARCHAR2, p_role VARCHAR2) IS
+    v_call CLOB;
+  BEGIN
+    -- 1) FND_USER_ROLE_API.GRANT_ROLE(user_, role_)
+    IF pkg_exists('FND_USER_ROLE_API') AND proc_exists('FND_USER_ROLE_API','GRANT_ROLE') THEN
+      v_call := 'BEGIN FND_USER_ROLE_API.GRANT_ROLE(user_=>:u, role_=>:r); END;';
+      IF dry_run THEN
+        say('-- DRYRUN API: FND_USER_ROLE_API.GRANT_ROLE(user_=>'||qv(p_user)||', role_=>'||qv(p_role)||')');
+      ELSE
+        EXECUTE IMMEDIATE v_call USING p_user, p_role;
+      END IF;
+      RETURN;
+    END IF;
+
+    -- 2) FND_GRANT_ROLE_API.GRANT_ROLE (if available)
+    IF pkg_exists('FND_GRANT_ROLE_API') AND proc_exists('FND_GRANT_ROLE_API','GRANT_ROLE') THEN
+      v_call := 'BEGIN FND_GRANT_ROLE_API.GRANT_ROLE(user_=>:u, role_=>:r); END;';
+      IF dry_run THEN
+        say('-- DRYRUN API: FND_GRANT_ROLE_API.GRANT_ROLE(user_=>'||qv(p_user)||', role_=>'||qv(p_role)||')');
+      ELSE
+        EXECUTE IMMEDIATE v_call USING p_user, p_role;
+      END IF;
+      RETURN;
+    END IF;
+
+    -- 3) FND_USER_ROLE_API.Set_Role__(identity_, role_, enable_ => TRUE)  <-- BOOLEAN
+    IF pkg_exists('FND_USER_ROLE_API') AND proc_exists('FND_USER_ROLE_API','SET_ROLE__') THEN
+      IF dry_run THEN
+        say('-- DRYRUN API: FND_USER_ROLE_API.Set_Role__(identity_=>'||qv(p_user)||', role_=>'||qv(p_role)||', enable_=>TRUE)');
+      ELSE
+        FND_USER_ROLE_API.Set_Role(identity_=>p_user, role_=>p_role, enable_=>TRUE);
+      END IF;
+      RETURN;
+    END IF;
+
+    RAISE_APPLICATION_ERROR(-20050, 'No public API found to grant roles.');
+  END;
+
+  PROCEDURE insert_role(p_user VARCHAR2, p_role VARCHAR2) IS
+    ins_sql CLOB;
+  BEGIN
+    -- WARNING: in IFS 8 direct insert usually fails (ROWVERSION/validation).
+    ins_sql := 'INSERT INTO '||qid(p_map_table)||' ('||qid(v_user_col)||','||qid(v_role_col)||') '||
+               'VALUES ('||qv(p_user)||','||qv(p_role)||')';
+    IF dry_run THEN
+      say('-- DRYRUN SQL (NOT RECOMMENDED): '||ins_sql);
+    ELSE
+      EXECUTE IMMEDIATE ins_sql;
+    END IF;
+  END;
+
+  FUNCTION has_role(p_user VARCHAR2, p_role VARCHAR2) RETURN BOOLEAN IS n INTEGER;
+  BEGIN
+    EXECUTE IMMEDIATE
+      'SELECT COUNT(*) FROM '||qid(p_map_table)||
+      ' WHERE '||qid(v_user_col)||' = '||qv(p_user)||
+      '   AND '||qid(v_role_col)||' = '||qv(p_role)
+      INTO n;
+    RETURN n > 0;
+  END;
+
+  FUNCTION any_api_available RETURN BOOLEAN IS
+  BEGIN
+    RETURN (pkg_exists('FND_USER_ROLE_API') AND
+           (proc_exists('FND_USER_ROLE_API','GRANT_ROLE') OR proc_exists('FND_USER_ROLE_API','SET_ROLE__')))
+        OR (pkg_exists('FND_GRANT_ROLE_API') AND proc_exists('FND_GRANT_ROLE_API','GRANT_ROLE'));
+  END;
+
+BEGIN
+  IF UPPER(p_src_user) = UPPER(p_dst_user) THEN
+    RAISE_APPLICATION_ERROR(-20001, 'Source and target users must be different.');
+  END IF;
+
+  resolve_table(p_map_table, v_owner, v_table);
+
+  v_user_col := detect_column(v_owner, v_table,
+                  SYS.ODCIVARCHAR2LIST('USER_NAME','IDENTITY','USER_ID','USERNAME'),
+                  'user');
+  v_role_col := detect_column(v_owner, v_table,
+                  SYS.ODCIVARCHAR2LIST('ROLE','PERMISSION_SET','ROLE_NAME','PERM_SET'),
+                  'role');
+
+  say('=== IFS: COPY ROLES (API-first) ===');
+  say('From: '||p_src_user||'  ->  To: '||p_dst_user||' | DryRun='||
+      CASE WHEN dry_run THEN 'TRUE' ELSE 'FALSE' END);
+  say('-- Using table: '||NVL(v_owner||'.','')||v_table||
+      ' (user_col='||v_user_col||', role_col='||v_role_col||')');
+
+  v_sql := 'SELECT DISTINCT '||qid(v_role_col)||
+           ' FROM '||qid(p_map_table)||
+           ' WHERE '||qid(v_user_col)||' = '||qv(p_src_user);
+  OPEN c FOR v_sql;
+
+  LOOP
+    FETCH c INTO v_role; EXIT WHEN c%NOTFOUND;
+
+    IF has_role(p_dst_user, v_role) THEN
+      say('-- SKIP: '||p_dst_user||' already has role '||v_role);
+      CONTINUE;
+    END IF;
+
+    BEGIN
+      IF any_api_available THEN
+        try_grant_via_api(p_dst_user, v_role);
+      ELSIF allow_insert_fallback THEN
+        say('WARN: No API available; attempting direct INSERT (not recommended).');
+        insert_role(p_dst_user, v_role);
+      ELSE
+        RAISE_APPLICATION_ERROR(-20051, 'No API available and INSERT fallback disabled.');
+      END IF;
+    EXCEPTION
+      WHEN OTHERS THEN
+        say('ERROR on role '||v_role||': '||SQLERRM);
+        RAISE;
+    END;
+  END LOOP;
+  CLOSE c;
+
+  IF NOT dry_run AND do_commit THEN COMMIT; END IF;
+
+  say('=== DONE ===');
+
+EXCEPTION
+  WHEN OTHERS THEN
+    say('ERROR: '||SQLERRM);
+    IF NOT dry_run THEN ROLLBACK; END IF;
+    RAISE;
+END;
+/
