@@ -11,6 +11,6 @@ Instead of opening a browser and searching manually, you can add it directly int
 2. Add a new menu item for window `frmCustomerInfoAddress`.
 3. Set **Action = URL**.
 4. Paste this link into *Action Parameters / URL*:
-
+![IFS custom menu](eori_custom_menu.png)
    ```text
    https://ec.europa.eu/taxation_customs/dds2/eos/eori_validation.jsp?Lang=en&&Expand=true&EoriNumb=&C_NR_EORI
