@@ -49,7 +49,9 @@ them as CSV files.
     ``` powershell
     MykLinkNbp.exe "D:\nbp_exports"
     ```
-
+4.  Schedule exe app in scheduler
+5.  Schedule migration job in IFS
+   
 Generated files in the output dir: - `nbp_A.csv`, `nbp_B.csv`,
 `nbp_C.csv` - `myk_nbp_log.txt` (keeps last 1000 lines)
 
