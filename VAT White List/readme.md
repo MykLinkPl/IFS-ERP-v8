@@ -101,7 +101,7 @@ Program.exe <environment> <company> <proposal_id>
 - **proposal_id** → proposal ID (integer)
 
 Example:
-Program.exe prod 07VBH 4
+Program.exe prod COMP1 4
 
 
 
