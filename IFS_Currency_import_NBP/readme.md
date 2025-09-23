@@ -10,6 +10,9 @@ them as CSV files.
 -   Per-table currency filters (empty = ALL)
 -   Log with hard rotation to **1000 lines**
 
+### Sample CSV output
+![CSV sample](ifs_csv_currencies_migration.png)
+
 ------------------------------------------------------------------------
 
 ## Features
@@ -87,6 +90,9 @@ LOG_FILE_NAME=myk_nbp_log.txt
 # Default already includes: JPY:100,HUF:100,ISK:100
 # CONV_FACTOR=JPY:100,HUF:100,ISK:100
 ```
+
+### Config file example
+![Config sample](ifs_nbp_currencies_config.png)
 
 > If the file doesn't exist, the app will create it with sane defaults
 > on first run.
