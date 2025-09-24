@@ -1,7 +1,7 @@
 # MykLink NBP CSV Dumper
 
-**myklink.pl** • https://github.com/MykLinkPl\
-Author: **Przemysław Myk**
+## Author
+[MykLink \| Smart Connections \| Przemysław Myk](https://myklink.pl/)
 
 Fetches the latest NBP exchange rate tables (**A / B / C**) and saves
 them as CSV files.
