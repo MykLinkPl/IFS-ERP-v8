@@ -3,6 +3,8 @@
 This repository contains a C# utility that integrates **IFS Applications** with the **Polish Ministry of Finance (MF) "white list of VAT taxpayers"** flat file.  
 The solution automates compliance checks for outgoing payments in **Customer Payment Proposals**.
 
+## Author
+[MykLink \| Smart Connections \| Przemysław Myk](https://myklink.pl/)
 ---
 
 ## 📖 Overview
