@@ -1,5 +1,5 @@
--- Copy IFS Apps 8 roles from one user to another (no removals).
--- Oracle 11g compatible. API-first only (no INSERT by default).
+-- Check if tax number is ok - report invalid numbers
+-- Oracle 11g compatible
 -- Author: Przemysław Myk — MykLink / Smart Connections
 -- https://github.com/MykLinkPl
 
