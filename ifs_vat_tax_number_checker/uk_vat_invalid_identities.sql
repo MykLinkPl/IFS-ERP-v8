@@ -1,3 +1,8 @@
+-- Check if tax number is ok - report invalid numbers
+-- Oracle 11g compatible
+-- Author: Przemysław Myk — MykLink / Smart Connections
+-- https://github.com/MykLinkPl
+
 WITH unified AS (
   SELECT
     TO_CHAR(a.customer_id)   AS party_id,
