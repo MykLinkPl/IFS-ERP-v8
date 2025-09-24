@@ -3,6 +3,10 @@
 Sometimes you need to check if your customer’s **EORI number** is valid (for customs or cross-border invoices).  
 Instead of opening a browser and searching manually, you can add it directly into IFS as a **custom menu**.
 
+## Author
+[MykLink \| Smart Connections \| Przemysław Myk](https://myklink.pl/)
+
+
 ![IFS eori menu](eori_field.png)
 ![IFS eori check](eori_valid.png)
 ---
