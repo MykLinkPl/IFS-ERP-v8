@@ -35,7 +35,6 @@ norm AS (
   FROM unified
 ),
 filtered AS (
-  -- WYKLUCZ: zaczyna się od 2 liter i to nie jest 'GB'
   SELECT
     party_id,
     party_name,
@@ -48,7 +47,6 @@ filtered AS (
               AND SUBSTR(cleaned, 1, 2) <> 'GB' )
 ),
 prefixed AS (
-  -- Dodaj 'GB' dla gołych cyfr: 9/12 (VAT) lub 8 (specjalny przypadek)
   SELECT
     party_id,
     party_name,
@@ -65,7 +63,6 @@ prefixed AS (
   FROM filtered
 ),
 vat_core AS (
-  -- 9 cyfr do checksumy; wykryj 12 cyfr (oddział) i 8-cyfrowe przypadki
   SELECT
     party_id,
     party_name,
@@ -90,11 +87,6 @@ vat_core AS (
   FROM prefixed
 ),
 check_calc AS (
-  /* Walidacja UK VAT (9 cyfr):
-     - wagi: 8,7,6,5,4,3,2,10,1
-     - TEST 1: MOD(sum, 97) = 0
-     - TEST 2: MOD(sum + 55, 97) = 0 (nowsze pule)
-  */
   SELECT
     v.*,
     CASE
@@ -158,3 +150,4 @@ FROM check_calc
 WHERE was_len8_only_digits = 'Y'
    OR vat9 IS NULL
    OR vat9_checksum_ok <> 'Y';
+
