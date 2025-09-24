@@ -5,6 +5,7 @@ The solution automates compliance checks for outgoing payments in **Customer Pay
 
 ## Author
 [MykLink \| Smart Connections \| Przemysław Myk](https://myklink.pl/)
+
 ---
 
 ## 📖 Overview
