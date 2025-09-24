@@ -25,7 +25,6 @@ WITH unified AS (
   WHERE s.country IN ('POLAND','POLSKA') AND s.association_no IS NOT NULL
 ),
 norm AS (
-  -- 1) Normalizacja tekstu
   SELECT
     party_id,
     party_name,
@@ -36,7 +35,6 @@ norm AS (
   FROM unified
 ),
 filtered AS (
-  -- 2) WYKLUCZ: zaczyna się od 2 liter i to nie jest 'PL'
   SELECT
     party_id,
     party_name,
@@ -49,7 +47,6 @@ filtered AS (
               AND SUBSTR(cleaned, 1, 2) <> 'PL' )
 ),
 prefixed AS (
-  -- 3) Dodaj 'PL' dla 10-cyfrowych numerów bez prefiksu
   SELECT
     party_id,
     party_name,
@@ -65,7 +62,6 @@ prefixed AS (
   FROM filtered
 ),
 nip_core AS (
-  -- 4) Wyciągnij 10-cyfrowy NIP do walidacji (po PL lub „goły” 10)
   SELECT
     party_id,
     party_name,
@@ -84,10 +80,6 @@ nip_core AS (
   FROM prefixed
 ),
 check_calc AS (
-  /* 5) Walidacja NIP:
-        wagi: 6,5,7,2,3,4,5,6,7 (dla cyfr 1..9)
-        kontrolna = cyfra 10; warunek: SUM(w_i * d_i) % 11 = d10 oraz d10 != 10
-  */
   SELECT
     n.*,
     CASE
@@ -116,7 +108,6 @@ check_calc AS (
     END AS nip_checksum_ok
   FROM nip_core n
 )
--- 6) Wynik
 SELECT
   party_id,
   party_name,
@@ -134,5 +125,5 @@ SELECT
   END AS needs_attention
 FROM check_calc
 WHERE (nip10 IS NULL OR nip_checksum_ok <> 'Y')
-and substr(party_id,0,1) not in ('P') --- specific type for our instance
+and substr(party_id,0,1) not in ('P')
 ;
