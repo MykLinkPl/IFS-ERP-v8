@@ -1,7 +1,9 @@
 # IFS ERP v8 — Admin / Utility Scripts
 
 A collection of small scripts for IFS Applications 8.  
-Author: **Przemysław Myk — MykLink / Smart Connections**
+
+## Author
+[MykLink \| Smart Connections \| Przemysław Myk](https://myklink.pl/)
 
 ---
 
