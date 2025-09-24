@@ -2,6 +2,9 @@
 
 Validates **checksum and format** of VAT/tax numbers and returns a list of **invalid / attention‑needed** records for IFS ERP v8 data.
 
+## Author
+[MykLink \| Smart Connections \| Przemysław Myk](https://myklink.pl/)
+
 ## Supported countries (checksum rules)
 **PL, GB, XI (Northern Ireland), DE, SK, IT, DK, FI, SE, FR, NL, BE**
 
@@ -27,9 +30,6 @@ Execute the chosen `.sql` in SQL*Plus/SQLcl/SQL Developer.
 The final query returns only **invalid or ambiguous** entries.
 
 > Note: Offline validation (no VIES/API calls).
-
-## Author
-[MykLink \| Smart Connections \| Przemysław Myk](https://www.linkedin.com/in/przemyslaw-myk/)
 
 ## License
 feel free to use :)
