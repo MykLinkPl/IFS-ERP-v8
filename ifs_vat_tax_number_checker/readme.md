@@ -15,6 +15,10 @@ Validates **checksum and format** of VAT/tax numbers and returns a list of **inv
 | `pl_nip_vat_invalid_identities.sql` | Stand‑alone validator for **Poland** (NIP). Shows **only invalid** Polish entries. | PL | polish NIP check, PL VAT checksum, oracle script |
 | `uk_vat_invalid_identities.sql` | Stand‑alone validator for **United Kingdom** (GB/XI). Shows **only invalid** UK entries. | GB, XI | UK VAT mod‑97, GB XI validation, oracle sql |
 
+
+![IFS query sample](tax_number_validation.png)
+
+
 ## What it does
 - Normalizes raw numbers (uppercase, strips non‑alphanumerics, safe ISO2 auto‑prefix).
 - Rejects numbers where a 2‑letter prefix **doesn’t match** the country code.
