@@ -18,7 +18,7 @@ A lightweight approval flow for supplier invoices.
 | Step | Screenshot |
 |------|------------|
 | 1. Add invoice in IFS | ![Add invoice (redacted)](1_Add_invoice.png) |
-| 2. Add posting/authorizer | ![Posting acceptant (redacted)](2_add_posting_acceptant.png) |
+| 2. Add posting/authorizer | |
 | 3. Webhook DB (tech view) | ![API table (redacted)](3_tech_api_table.png) |
 | 4. Teams notification | ![Teams notification (redacted)](4_teams_notification.png) |
 | 5a. Approval page | ![Approve page (redacted)](4_accept_invoice.png) |
