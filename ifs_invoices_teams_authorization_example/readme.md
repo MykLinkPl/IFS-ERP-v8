@@ -73,27 +73,3 @@ A lightweight approval flow for supplier invoices.
   ```
 
 ---
-
-## Hashing & privacy
-
-- `issuer_hash = HMAC-SHA256(<AUTHORISER_CODE>, API_SHARED_SECRET)`  
-- `invoice_hash = HMAC-SHA256(<IFS_OBJID>, API_SHARED_SECRET)`  
-
----
-
-## Teams message (paste-ready template)
-
-```
-🧾 **Invoice approval request**
-
-
----
-
-## Security notes (non-sensitive)
-
-- CSRF on approval POST.
-- No restricted data in URLs; hashes only.
-- Optional per-IP and per-invoice rate limiting.
-- Strict headers & CSP on the approval page.
-
----
