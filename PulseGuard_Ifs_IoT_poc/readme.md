@@ -7,6 +7,7 @@
 [ IoT sensor ] ──> [ PulseGuard ] ──> [ IFS: FAULT_REPORT_API.NEW__ ]
         (oil level, vibration, temperature, …)
 ```
+![IFS PulseGuard](MykLink_pulseGuard.png)
 
 ## What it does
 - Polls simple IoT endpoints (HTTP GET).
