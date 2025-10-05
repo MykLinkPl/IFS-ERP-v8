@@ -6,6 +6,10 @@ A collection of small scripts for IFS Applications 8.
 [MykLink \| Smart Connections \| Przemysław Myk](https://myklink.pl/)
 
 ---
+👋 **Landing Page:** [myklink.pl](https://myklink.pl)
+
+
+---
 
 ## 📜 Script List
 
