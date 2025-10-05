@@ -1,0 +1,23 @@
+{
+  "defaultRecipient": "missing.supplier.address@myklink.pl",
+
+  "environments": {
+    "prod": "http://ifsappserver:59080",
+    "test": "http://ifsappserver:60080",
+    "demo": "http://ifsappserver:59080"
+  },
+
+  "allowedStates": [ "Confirmed", "Released" ],
+	"supplierCommName": "Comm_method_name",
+  "mail": {
+	  "pl": {
+		"subject": "TEST: Zamówienie zakupu {orderNo}",
+		"body": "<html><head><meta charset='utf-8'></head><body style='font-family:Arial;font-size:11pt'>Dzień dobry,<br>to jest wiadomość testowa wysyłana z MykLink.<br>W załączeniu znajduje się testowy dokument zamówienia.<br>Dziękuję i pozdrawiam.</body></html>"
+	  },
+	  "en": {
+		"subject": "TEST: Purchase Order {orderNo}",
+		"body": "<html><head><meta charset='utf-8'></head><body style='font-family:Arial;font-size:11pt'>Hello,<br>this is a test message sent from MykLink.<br>The test purchase order document is attached.<br>Thank you and best regards.</body></html>"
+	  }
+	}
+
+}
