@@ -1,9 +1,9 @@
-using System.ServiceModel;
-using System.ServiceModel.Channels;
 using System.Text.Json;
 using System.Xml.Linq;
 using Oracle.ManagedDataAccess.Client;
 using ServiceReference;
+using System.ServiceModel;
+using System.ServiceModel.Channels;
 
 namespace MykLinkGusIfsSync
 {
@@ -75,8 +75,8 @@ namespace MykLinkGusIfsSync
 				int errors = 0;
 				int writtenRegon = 0;
 				int writtenKrs = 0;
+				int writeErrors = 0;
 
-				// do testów możesz chwilowo zmienić na nips.Take(10)
 				foreach (var nip in nips)
 				{
 					GusCacheEntry cacheEntry;
@@ -145,30 +145,46 @@ namespace MykLinkGusIfsSync
 						{
 							if (string.IsNullOrWhiteSpace(row.ExistingRegon) && !string.IsNullOrWhiteSpace(cacheEntry.Regon))
 							{
-								InsertIfsCode(
-									config.OracleConnectionString,
-									row.Company,
-									row.Identity,
-									row.PartyType,
-									"REGON",
-									cacheEntry.Regon!);
+								try
+								{
+									InsertIfsCode(
+										config.OracleConnectionString,
+										row.Company,
+										row.Identity,
+										row.PartyType,
+										"REGON",
+										cacheEntry.Regon);
 
-								writtenRegon++;
-								Log(config.LogFile, $"WRITE_REGON | {nip} | {row.Company} | {row.Identity} | {cacheEntry.Regon}");
+									writtenRegon++;
+									Log(config.LogFile, $"WRITE_REGON | {nip} | {row.Company} | {row.Identity} | {cacheEntry.Regon}");
+								}
+								catch (Exception ex)
+								{
+									writeErrors++;
+									Log(config.LogFile, $"WRITE_REGON_ERROR | {nip} | {row.Company} | {row.Identity} | {ex.Message}");
+								}
 							}
 
 							if (string.IsNullOrWhiteSpace(row.ExistingKrs) && !string.IsNullOrWhiteSpace(cacheEntry.Krs))
 							{
-								InsertIfsCode(
-									config.OracleConnectionString,
-									row.Company,
-									row.Identity,
-									row.PartyType,
-									"KRS",
-									cacheEntry.Krs!);
+								try
+								{
+									InsertIfsCode(
+										config.OracleConnectionString,
+										row.Company,
+										row.Identity,
+										row.PartyType,
+										"KRS",
+										cacheEntry.Krs);
 
-								writtenKrs++;
-								Log(config.LogFile, $"WRITE_KRS | {nip} | {row.Company} | {row.Identity} | {cacheEntry.Krs}");
+									writtenKrs++;
+									Log(config.LogFile, $"WRITE_KRS | {nip} | {row.Company} | {row.Identity} | {cacheEntry.Krs}");
+								}
+								catch (Exception ex)
+								{
+									writeErrors++;
+									Log(config.LogFile, $"WRITE_KRS_ERROR | {nip} | {row.Company} | {row.Identity} | {ex.Message}");
+								}
 							}
 						}
 					}
@@ -190,6 +206,7 @@ namespace MykLinkGusIfsSync
 				Log(config.LogFile, $"ERROR: {errors}");
 				Log(config.LogFile, $"Wpisane REGON: {writtenRegon}");
 				Log(config.LogFile, $"Wpisane KRS: {writtenKrs}");
+				Log(config.LogFile, $"Błędy zapisu IFS: {writeErrors}");
 			}
 			catch (Exception ex)
 			{
@@ -503,22 +520,23 @@ end;";
 					_sessionId = loginResponse.ZalogujResult;
 				}
 
-				using (new OperationContextScope((IContextChannel)_client.InnerChannel))
+				var searchRaw = await CallSearchAsync(nip);
+
+				var searchParsed = ParseSearchResult(searchRaw, nip);
+				if (!string.Equals(searchParsed.Status, "FOUND", StringComparison.OrdinalIgnoreCase))
+					return searchParsed;
+
+				var full = await TryGetFullReportAsync(searchParsed.Regon);
+				if (full != null)
 				{
-					var httpRequest = new HttpRequestMessageProperty();
-					httpRequest.Headers["sid"] = _sessionId;
+					if (string.IsNullOrWhiteSpace(searchParsed.Name))
+						searchParsed.Name = full.Name;
 
-					OperationContext.Current.OutgoingMessageProperties[HttpRequestMessageProperty.Name] = httpRequest;
-
-					var searchResponse = await _client.DaneSzukajPodmiotyAsync(new ParametryWyszukiwania
-					{
-						Nip = nip
-					});
-
-					var raw = searchResponse.DaneSzukajPodmiotyResult;
-
-					return ParseResult(raw, nip);
+					if (string.IsNullOrWhiteSpace(searchParsed.Krs))
+						searchParsed.Krs = full.Krs;
 				}
+
+				return searchParsed;
 			}
 			catch (Exception ex)
 			{
@@ -531,13 +549,91 @@ end;";
 			}
 		}
 
+		private async Task<string> CallSearchAsync(string nip)
+		{
+			using (new OperationContextScope((IContextChannel)_client.InnerChannel))
+			{
+				var httpRequest = new HttpRequestMessageProperty();
+				httpRequest.Headers["sid"] = _sessionId;
+				OperationContext.Current.OutgoingMessageProperties[HttpRequestMessageProperty.Name] = httpRequest;
+
+				var searchResponse = await _client.DaneSzukajPodmiotyAsync(new ParametryWyszukiwania
+				{
+					Nip = nip
+				});
+
+				return searchResponse.DaneSzukajPodmiotyResult;
+			}
+		}
+
+		private async Task<FullReportResult?> TryGetFullReportAsync(string regon)
+		{
+			if (string.IsNullOrWhiteSpace(regon))
+				return null;
+
+			string[] reportNames =
+			{
+				"BIR11OsPrawna",
+				"BIR11OsFizycznaDzialalnoscCeidg",
+				"BIR11OsFizycznaDzialalnoscPozostala",
+				"BIR11OsFizycznaRolnicza",
+				"BIR11JednLokalnaOsPrawnej",
+				"BIR11JednLokalnaOsFizycznej"
+			};
+
+			foreach (var reportName in reportNames)
+			{
+				try
+				{
+					using (new OperationContextScope((IContextChannel)_client.InnerChannel))
+					{
+						var httpRequest = new HttpRequestMessageProperty();
+						httpRequest.Headers["sid"] = _sessionId;
+						OperationContext.Current.OutgoingMessageProperties[HttpRequestMessageProperty.Name] = httpRequest;
+
+						var response = await _client.DanePobierzPelnyRaportAsync(
+    regon, reportName);
+
+						var raw = response.DanePobierzPelnyRaportResult;
+
+						// debug dump
+						var dumpDir = Path.Combine(AppContext.BaseDirectory, "gus_dump");
+						Directory.CreateDirectory(dumpDir);
+
+						var safeRegon = string.IsNullOrWhiteSpace(regon) ? "no_regon" : regon;
+						var safeReport = reportName.Replace("/", "_").Replace("\\", "_");
+						var dumpFile = Path.Combine(dumpDir, $"{safeRegon}_{safeReport}.xml");
+
+						File.WriteAllText(dumpFile, raw ?? "", System.Text.Encoding.UTF8);
+
+						var parsed = ParseFullReport(raw);
+						if (parsed != null)
+							return parsed;
+					}
+				}
+				catch
+				{
+					// próbujemy kolejny raport
+				}
+			}
+
+			return null;
+		}
+
 		public void Dispose()
 		{
 			try
 			{
 				if (!string.IsNullOrWhiteSpace(_sessionId))
 				{
-					_client.WylogujAsync(_sessionId).GetAwaiter().GetResult();
+					using (new OperationContextScope((IContextChannel)_client.InnerChannel))
+					{
+						var httpRequest = new HttpRequestMessageProperty();
+						httpRequest.Headers["sid"] = _sessionId;
+						OperationContext.Current.OutgoingMessageProperties[HttpRequestMessageProperty.Name] = httpRequest;
+
+						_client.WylogujAsync(_sessionId).GetAwaiter().GetResult();
+					}
 				}
 			}
 			catch
@@ -555,7 +651,7 @@ end;";
 			}
 		}
 
-		private static GusResult ParseResult(string raw, string nip)
+		private static GusResult ParseSearchResult(string raw, string nip)
 		{
 			if (string.IsNullOrWhiteSpace(raw))
 			{
@@ -591,23 +687,132 @@ end;";
 				};
 			}
 
-			var regon = GetValue(dane, "Regon");
-			var krs = GetValue(dane, "Krs");
-			var name = GetValue(dane, "Nazwa");
+			var regon = FindValueByPossibleNames(
+				dane,
+				"Regon",
+				"regon",
+				"Regon9zn",
+				"Regon14zn");
+
+			var krs = FindValueByPossibleNames(
+				dane,
+				"Krs",
+				"krs");
+
+			var name = FindValueByPossibleNames(
+				dane,
+				"Nazwa",
+				"nazwa");
 
 			return new GusResult
 			{
 				Nip = nip,
-				Status = "FOUND",
+				Status = string.IsNullOrWhiteSpace(regon) && string.IsNullOrWhiteSpace(name) ? "NOT_FOUND" : "FOUND",
 				Regon = Clean(regon),
 				Krs = Clean(krs),
 				Name = Clean(name)
 			};
 		}
 
-		private static string GetValue(XElement parent, string name)
+		private static FullReportResult? ParseFullReport(string raw)
 		{
-			return parent.Elements().FirstOrDefault(x => x.Name.LocalName == name)?.Value;
+			if (string.IsNullOrWhiteSpace(raw))
+				return null;
+
+			var text = raw.Trim();
+			if (!text.Contains("<"))
+				return null;
+
+			var doc = XDocument.Parse(text);
+			var dane = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "dane") ?? doc.Root;
+			if (dane == null)
+				return null;
+
+			var name = FindValueByPossibleNames(
+				dane,
+				"praw_nazwa",
+				"fiz_nazwa",
+				"lp_nazwa",
+				"Nazwa",
+				"nazwa");
+
+			var registryType = FindValueByPossibleNames(
+				dane,
+				"praw_rodzajRejestruEwidencji_Nazwa",
+				"fiz_rodzajRejestruEwidencji_Nazwa",
+				"lp_rodzajRejestruEwidencji_Nazwa"
+			);
+
+			var registryNumber = FindValueByPossibleNames(
+				dane,
+				"praw_numerWRejestrzeEwidencji",
+				"fiz_numerWRejestrzeEwidencji",
+				"lp_numerWRejestrzeEwidencji");
+
+			string? krs = null;
+
+			if (!string.IsNullOrWhiteSpace(registryType) &&
+				registryType.Contains("REJESTR PRZEDSIĘBIORC", StringComparison.OrdinalIgnoreCase) &&
+				!string.IsNullOrWhiteSpace(registryNumber))
+			{
+				krs = registryNumber;
+			}
+			else
+			{
+				var directKrs = FindValueByPossibleNames(
+					dane,
+					"Krs",
+					"krs",
+					"praw_krs",
+					"fiz_krs",
+					"lp_krs");
+
+				if (!string.IsNullOrWhiteSpace(directKrs))
+					krs = directKrs;
+			}
+
+			return new FullReportResult
+			{
+				Name = Clean(name),
+				Krs = Clean(krs)
+			};
+		}
+
+		private static string FindValueByPossibleNames(XElement parent, params string[] names)
+		{
+			foreach (var element in parent.Elements())
+			{
+				foreach (var name in names)
+				{
+					if (string.Equals(element.Name.LocalName, name, StringComparison.OrdinalIgnoreCase))
+						return element.Value;
+				}
+			}
+
+			return null;
+		}
+
+		private static string FindValueByPartialNames(XElement parent, params string[] tokens)
+		{
+			foreach (var element in parent.Elements())
+			{
+				var local = element.Name.LocalName;
+
+				bool allFound = true;
+				foreach (var token in tokens)
+				{
+					if (local.IndexOf(token, StringComparison.OrdinalIgnoreCase) < 0)
+					{
+						allFound = false;
+						break;
+					}
+				}
+
+				if (allFound)
+					return element.Value;
+			}
+
+			return null;
 		}
 
 		private static string Clean(string value)
@@ -710,5 +915,11 @@ end;";
 		public string Nip { get; set; } = "";
 		public string ExistingRegon { get; set; }
 		public string ExistingKrs { get; set; }
+	}
+
+	internal class FullReportResult
+	{
+		public string Name { get; set; }
+		public string Krs { get; set; }
 	}
 }
