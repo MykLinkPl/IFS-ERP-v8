@@ -1,0 +1,11 @@
+{
+  "oracleConnectionString": "User Id=ifsapp;Password=passw;Data Source=server/db;",
+  "gusApiKey": "gus_api_key",
+  "cacheFile": "gus-cache.json",
+  "logFile": "gus-sync.log",
+  "cacheTtlDays": 30,
+  "saveCacheEvery": 20,
+  "requestsPerSecond": 2,
+  "requestsPerMinute": 100,
+  "requestsPerHour": 5000
+}
