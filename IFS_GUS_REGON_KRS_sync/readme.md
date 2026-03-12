@@ -10,6 +10,14 @@ It reads distinct Polish NIPs from Oracle / IFS, checks them in GUS REGON BIR AP
 
 
 ## What it does
+Before:
+
+![Before sync](./MykLinkGusIfsSync_before.png)
+
+After:
+
+![After sync](./MykLinkGusIfsSync_after.png)
+
 
 Flow:
 
@@ -46,7 +54,7 @@ https://api.stat.gov.pl/Home/RegonApi
 
 The same key works for BIR 1 / 1.1 / 1.2 versions of the API.
 
-After receiving the key, place it in `config.json`.
+After receiving the key, create `config.json` based on `config.json.example`.
 
 
 
